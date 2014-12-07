@@ -7,6 +7,8 @@
 #include <signal.h>		
 #include <sys/types.h>
 #include <sys/wait.h>	
+#include <readline/readline.h>
+#include <readline/history.h>
 
 
 //Global Variables
@@ -17,7 +19,6 @@ static pid_t shell_PGID;
 static char **ENV;
 static struct termios TMODES;
 pid_t pid;
-static int input = 0;
 
 struct sigaction act_child;
 struct sigaction act_int;
@@ -46,19 +47,18 @@ void child_signal_HANDLER(int p){
 	// return immediately 
 	while(waitpid(-1,NULL,WNOHANG)>0){
 	}
-	printf("command executed; ");
+	//printf("command executed;");
 
 }
 void int_signal_HANDLER(int p){
 
 	//handles Ctrl+C 
-	
-	if(kill(pid,SIGTERM)==0){
+	if(kill(pid,SIGKILL)==0){
 		printf("\nprocess %d has been terminated by the user",pid);
 	}
 	else{
 		if(pid<0){
-			printf("you pressed CTRL+C\nGood try shell won't close like this!");
+			printf("\nyou pressed CTRL+C");
 		}else{
 			printf("process couldn't be terminated");
 		}
@@ -83,7 +83,6 @@ void shell_INIT(){
 
 		sigaction(SIGCHLD,&act_child,0);
 		sigaction(SIGINT,&act_int,0);
-
 		//put shell in its own process group
 		shell_PGID = getpid();
 		if(setpgid(shell_PGID,PID)<0){
@@ -387,28 +386,39 @@ void fileIO_EXECUTER(char *args[], char *inFile, char * outFile, int opt){
 	}
 	if(pid==0){
 
-		// for output redirection only
-		if (opt == 0){
-			
-			fileDescriptor = open(outFile, O_CREAT | O_TRUNC | O_WRONLY, 0600); 
-			dup2(fileDescriptor, STDOUT_FILENO); 
-			close(fileDescriptor);
-		
-		}
-		// for both input and output redirection
-		else if (opt == 1){
+		switch(opt){
 
-			//input
-			fileDescriptor = open(inFile, O_RDONLY, 0600);  
-			dup2(fileDescriptor, STDIN_FILENO);
-			close(fileDescriptor);
+			// for output redirection only
+			case 1: fileDescriptor = open(outFile, O_CREAT | O_TRUNC | O_WRONLY, 0600); 
+					dup2(fileDescriptor, STDOUT_FILENO); 
+					close(fileDescriptor);
+					break;
+
+			// for output redirection with appending
+			case 2:	if((fileDescriptor = open(outFile, O_APPEND | O_WRONLY, 0600))>=0){
+						dup2(fileDescriptor, STDOUT_FILENO); 
+						close(fileDescriptor);
+						printf("something cool");
+					}
+					else{
+						printf("%s: doesn't exist",outFile);
+					} 
+					break;
+
+			case 3: //input
+					fileDescriptor = open(inFile, O_RDONLY, 0600);  
+					dup2(fileDescriptor, STDIN_FILENO);
+					close(fileDescriptor);
 			
-			//output
-			fileDescriptor = open(outFile, O_CREAT | O_TRUNC | O_WRONLY, 0600);
-			dup2(fileDescriptor, STDOUT_FILENO);
-			close(fileDescriptor);		 
+					//output
+					fileDescriptor = open(outFile, O_CREAT | O_TRUNC | O_WRONLY, 0600);
+					dup2(fileDescriptor, STDOUT_FILENO);
+					close(fileDescriptor);	
+					break;
+
+			default: printf("bad option");
+					exit(1);	
 		}
-		 
 		//setenv("parent",getcwd(currentDirectory, 1024),1);
 		
 		if (execvp(args[0],args)==-1){
@@ -462,7 +472,7 @@ void command_HANDLER(char *args[]){
 	char *spec_chars[100];
 
 	while(args[i]){
-		if((strcmp(args[i],">")==0) || (strcmp(args[i],"<")==0) || (strcmp(args[i],"|")==0) || (strcmp(args[i],"&")==0) || (strcmp(args[i],"$")==0)){
+		if((strcmp(args[i],">")==0) || (strcmp(args[i],">>")==0)  ||(strcmp(args[i],"<")==0) || (strcmp(args[i],"|")==0) || (strcmp(args[i],"&")==0) || (strcmp(args[i],"$")==0)){
 			spec_chars[j] = args[i];
 			j++;
 		}
@@ -521,7 +531,7 @@ void command_HANDLER(char *args[]){
 			//for file input and output (beta stage)
 			// both redirections
 			else if (strcmp(args[i],"<") == 0){
-
+	
 				k = i+1;
 
 				if (args[k] == NULL || args[k+1] == NULL || args[k+2] == NULL ){
@@ -536,22 +546,30 @@ void command_HANDLER(char *args[]){
 
 				args[i] = NULL;
 
-				fileIO_EXECUTER(args,args[i+1],args[i+3],1);
+				fileIO_EXECUTER(args,args[i+1],args[i+3],3);
 				return;
 			}
 
 			// only for output redirection (beta stage)
-			else if (strcmp(args[i],">") == 0){
-
+			else if (strcmp(args[i],">") ==0 ){
+			
 				if (args[i+1] == NULL){
 					printf("Not enough input arguments: output file not specified");
 					return;
 				}
 				args[i] = NULL;
-				fileIO_EXECUTER(args,NULL,args[i+1],0);
+				fileIO_EXECUTER(args,NULL,args[i+1],1);
 				return;
 			}
-			else{
+			// output redirection with appending (beta stage)
+			else if(strcmp(args[i],">>") == 0){
+
+				if(args[i+1] == NULL){
+					printf("Not enough input arguments: output file not specified");
+					return;
+				}
+				args[i] = NULL;
+				fileIO_EXECUTER(args,NULL,args[i+1],2);
 				
 			}
 
