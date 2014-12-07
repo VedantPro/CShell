@@ -10,6 +10,7 @@
 
 
 //Global Variables
+static char HISTORY[1000][100];
 static pid_t PID;
 static pid_t PGID;
 static pid_t shell_PGID;
@@ -26,7 +27,7 @@ struct sigaction act_int;
 void child_signal_HANDLER(int p);
 void int_signal_HANDLER(int p);
 
-//basic function declarations
+//All function declarations
 void env_MANAGER(char *args[],int act);
 void command_EXECUTER(char *args[]);
 void command_HANDLER(char *args[]);
@@ -34,6 +35,7 @@ void pipe_EXECUTER(char *args[]);
 void fileIO_EXECUTER(char *args[], char *inFile, char * outFile, int opt);
 void echo_HANDLER(char *args[]);
 void back_proc_HANDLER(char *args[],int back_stat);
+void print_HISTORY(char num);
 
 
 
@@ -107,39 +109,38 @@ int main(int argc, char *argv[], char **envp){
 
 
 	shell_INIT();
-
 	char shell_INPUT[1024];
+	int hist_count=0;
 	char *tokens[256];
 	int tok_counts = 0;
 
 	ENV = envp;
 
-	printf("\t============================\n\n");
-	printf("\t         LINUX shell        \n\n");
-	printf("\t A Shell implementation in C\n\n");
-	printf("\t============================\n\n");
+	system("clear");
+	printf("\n\n\t\t====================================\n\n");
+	printf("\t\t             LINUX shell            \n\n");
+	printf("\t\t    ----------------------------    \n\n");
+	printf("\t\t     A Shell implementation in C    \n\n");
+	printf("\t\t====================================\n\n");
 
 	while(1){
 
 		pid = -10;
-
+		
 		memset(shell_INPUT,'\0',sizeof(shell_INPUT));
 
 		printf("\n%s@%s: ",getenv("USER"),getenv("SESSION"));
 		fgets(shell_INPUT,1024,stdin);
+
+		memcpy(HISTORY[hist_count],shell_INPUT,sizeof(shell_INPUT));
+		hist_count++;
 
 		if((tokens[0] = strtok(shell_INPUT," \n)\t")) == NULL) continue;
 		
 		tok_counts = 1;
 
 		while((tokens[tok_counts] = strtok(NULL, " \n\t")) != NULL) tok_counts++;
-		/*
-		int i=0;
-		while(tokens[i]){
-			printf("%s ",tokens[i]);
-			i++;
-		}
-		tokens[tok_counts] = NULL;*/
+
 		command_HANDLER(tokens);
 
 	}
@@ -435,6 +436,25 @@ void command_EXECUTER(char *args[]){
 
 }
 
+void print_HISTORY(char num){
+
+	int a = num - '0';
+	int i=0;
+	if(a==0){
+		
+		while(strlen(HISTORY[i])!=0){
+			printf("%s",HISTORY[i]);
+			i++;
+		}
+	}
+	else{
+		while(i!=a){
+			printf("%s",HISTORY[i]);
+			i++;
+		}
+	}
+}
+
 void command_HANDLER(char *args[]){
 
 	int i=0;
@@ -450,7 +470,10 @@ void command_HANDLER(char *args[]){
 	}
 
 	if(j==0){
-		if(strcmp(args[0],"exit")==0) exit(0);
+		if(strcmp(args[0],"exit")==0){
+			system("clear"); 
+			exit(0);
+		}
 		else if(strcmp(args[0],"clear")==0) system("clear");
 		else if(strcmp(args[0],"penv")==0) env_MANAGER(args,0);
 		else if(strcmp(args[0],"unsenv")==0){
@@ -461,6 +484,14 @@ void command_HANDLER(char *args[]){
 		}
 		else if(strcmp(args[0],"cd")==0){
 			change_DIR(args);
+		}
+		else if(strcmp(args[0],"history")==0){
+			if(args[1]==NULL){
+				print_HISTORY('0');
+			}
+			else{
+				print_HISTORY((char)*args[1]);
+			}
 		}
 		else command_EXECUTER(args);
 	}
