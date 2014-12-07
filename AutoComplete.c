@@ -1,4 +1,17 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <readline/readline.h>
+#include <readline/history.h>
+
+//AutoComplete Variables
+static char** custom_completion(const char*, int ,int);
+char* custom_generator(const char*,int);
+char * dupstr (char*);
+void *xmalloc (int);
  
+char* cmd [] ={"ls","pwd","sort","ftp","find","locate","vim","diff","export","grep","gzip","history","penv","senv","unsenv","shutdown","ps","kill","rm","mv","cp","cat","less","mount","chmod","chown","passwd","ifconfig","uname","man","tail","more","sudo","apt-get","install","ping","date","wget"};
+
 
 static char** custom_completion( const char * text , int start,  int end)
 {
